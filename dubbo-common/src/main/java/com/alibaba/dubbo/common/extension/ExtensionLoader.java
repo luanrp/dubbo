@@ -497,6 +497,7 @@ public class ExtensionLoader<T> {
             injectExtension(instance);
             Set<Class<?>> wrapperClasses = cachedWrapperClasses;
             if (wrapperClasses != null && !wrapperClasses.isEmpty()) {
+                //rluan: 如果存在 wrapper class, 像洋葱一样层层包裹起来.
                 for (Class<?> wrapperClass : wrapperClasses) {
                     instance = injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));
                 }
@@ -651,6 +652,8 @@ public class ExtensionLoader<T> {
                     type + ", class line: " + clazz.getName() + "), class "
                     + clazz.getName() + "is not subtype of interface.");
         }
+        //rluan: @Adaptive如果是标注在类上, 那么这个类直接被当做 Adaptive class.
+        // spi 的声明文件中, 最多只能有一行是 Adaptive 标注类.
         if (clazz.isAnnotationPresent(Adaptive.class)) {
             if (cachedAdaptiveClass == null) {
                 cachedAdaptiveClass = clazz;
@@ -659,7 +662,14 @@ public class ExtensionLoader<T> {
                         + cachedAdaptiveClass.getClass().getName()
                         + ", " + clazz.getClass().getName());
             }
-        } else if (isWrapperClass(clazz)) {
+        }
+        // rluan: 这里的第一个考点是 ExtensionLoader类的isWrapperClass()和createExtension();
+        // 如果一个 extension 存在一个构造方法, 该方法的入参是对应的extension接口类; 那么这个类会被当做 wrap 类放到cachedWrapperClasses里;
+        // 在获取"impl1"的 extention 时, 会把原始的extention 注入到这个 wrapper 类的构造函数里, 并执行 injection返回; 解释了 impl1的类型为什么是 Ext5Wrappper1.
+
+        // 考点2: 当有多个 wrapper 类的时候, 会逐层包裹起来: wrapper1(wrapper2(ext5Impl1));
+        // 所以如下的用例, impl1, impl2 的最外层的类都是一样的; 只有最内层的类是不一样的.
+        else if (isWrapperClass(clazz)) {
             Set<Class<?>> wrappers = cachedWrapperClasses;
             if (wrappers == null) {
                 cachedWrapperClasses = new ConcurrentHashSet<Class<?>>();

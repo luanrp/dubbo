@@ -68,6 +68,7 @@ import static org.junit.Assert.fail;
 import static org.junit.matchers.JUnitMatchers.containsString;
 
 public class ExtensionLoaderTest {
+    // rluan: 禁止null 作为参数
     @Test
     public void test_getExtensionLoader_Null() throws Exception {
         try {
@@ -79,6 +80,7 @@ public class ExtensionLoaderTest {
         }
     }
 
+    //rluan: 禁止非接口入参
     @Test
     public void test_getExtensionLoader_NotInterface() throws Exception {
         try {
@@ -90,6 +92,7 @@ public class ExtensionLoaderTest {
         }
     }
 
+    //rluan: 禁止非 spi 入参
     @Test
     public void test_getExtensionLoader_NotSpiAnnotation() throws Exception {
         try {
@@ -103,6 +106,8 @@ public class ExtensionLoaderTest {
         }
     }
 
+    // rluan: 简单用例: 对应的 spi 文件: META-INF/dubbo/internal/com.alibaba.dubbo.common.extensionloader.ext1.SimpleExt
+    // SPI里注解的名字即为默认 extension. 这里是 impl1
     @Test
     public void test_getDefaultExtension() throws Exception {
         SimpleExt ext = ExtensionLoader.getExtensionLoader(SimpleExt.class).getDefaultExtension();
@@ -112,6 +117,7 @@ public class ExtensionLoaderTest {
         assertEquals("impl1", name);
     }
 
+    // rluan: SPI 的 annotation 里没有标注默认值, 所以 getDefault 为空.
     @Test
     public void test_getDefaultExtension_NULL() throws Exception {
         Ext2 ext = ExtensionLoader.getExtensionLoader(Ext2.class).getDefaultExtension();
@@ -121,12 +127,19 @@ public class ExtensionLoaderTest {
         assertNull(name);
     }
 
+    // rluan: 标准用法: 以name 的方式获取 extention
     @Test
     public void test_getExtension() throws Exception {
         assertTrue(ExtensionLoader.getExtensionLoader(SimpleExt.class).getExtension("impl1") instanceof SimpleExtImpl1);
         assertTrue(ExtensionLoader.getExtensionLoader(SimpleExt.class).getExtension("impl2") instanceof SimpleExtImpl2);
     }
 
+    // rluan: 这里的第一个考点是 ExtensionLoader类的isWrapperClass()和createExtension();
+    // 如果一个 extension 存在一个构造方法, 该方法的入参是对应的extension接口类; 那么这个类会被当做 wrap 类放到cachedWrapperClasses里;
+    // 在获取"impl1"的 extention 时, 会把原始的extention 注入到这个 wrapper 类的构造函数里, 并执行 injection返回; 解释了 impl1的类型为什么是 Ext5Wrappper1.
+
+    // 考点2: 当有多个 wrapper 类的时候, 会逐层包裹起来: wrapper1(wrapper2(ext5Impl1));
+    // 所以如下的用例, impl1, impl2 的最外层的类都是一样的; 只有最内层的类是不一样的.
     @Test
     public void test_getExtension_WithWrapper() throws Exception {
         WrappedExt impl1 = ExtensionLoader.getExtensionLoader(WrappedExt.class).getExtension("impl1");
@@ -145,6 +158,8 @@ public class ExtensionLoaderTest {
         assertEquals(echoCount2 + 1, Ext5Wrapper2.echoCount.get());
     }
 
+
+    //rluan: 这里测试的是非法名称.
     @Test
     public void test_getExtension_ExceptionNoExtension() throws Exception {
         try {
@@ -155,6 +170,7 @@ public class ExtensionLoaderTest {
         }
     }
 
+    //rluan: 这里测试的也是非法名称.
     @Test
     public void test_getExtension_ExceptionNoExtension_WrapperNotAffactName() throws Exception {
         try {
@@ -165,6 +181,7 @@ public class ExtensionLoaderTest {
         }
     }
 
+    // rluan: 这里测试的是null.
     @Test
     public void test_getExtension_ExceptionNullArg() throws Exception {
         try {
@@ -175,6 +192,7 @@ public class ExtensionLoaderTest {
         }
     }
 
+    //rluan: extension 的名字不能连写.
     @Test
     public void test_hasExtension() throws Exception {
         assertTrue(ExtensionLoader.getExtensionLoader(SimpleExt.class).hasExtension("impl1"));
@@ -189,6 +207,7 @@ public class ExtensionLoaderTest {
         }
     }
 
+    //rluan: 对 wrapper 的规则也是一样.
     @Test
     public void test_hasExtension_wrapperIsNotExt() throws Exception {
         assertTrue(ExtensionLoader.getExtensionLoader(WrappedExt.class).hasExtension("impl1"));
@@ -205,6 +224,7 @@ public class ExtensionLoaderTest {
         }
     }
 
+    //rluan: 这里展示的是获取 extension 列表的方法.
     @Test
     public void test_getSupportedExtensions() throws Exception {
         Set<String> exts = ExtensionLoader.getExtensionLoader(SimpleExt.class).getSupportedExtensions();
@@ -217,6 +237,8 @@ public class ExtensionLoaderTest {
         assertEquals(expected, exts);
     }
 
+
+    //rluan: 这里的考点是: wrapper extension不会以自己的 name独立暴露出来; 而是以被 wrap的 extension 展示出来.
     @Test
     public void test_getSupportedExtensions_wrapperIsNotExt() throws Exception {
         Set<String> exts = ExtensionLoader.getExtensionLoader(WrappedExt.class).getSupportedExtensions();
@@ -228,6 +250,9 @@ public class ExtensionLoaderTest {
         assertEquals(expected, exts);
     }
 
+
+    //rluan: 这里展示了用 api 的方式获取 extension 的方法: getExtension.
+    //
     @Test
     public void test_AddExtension() throws Exception {
         try {
@@ -244,6 +269,8 @@ public class ExtensionLoaderTest {
         assertEquals("Manual1", ExtensionLoader.getExtensionLoader(AddExt1.class).getExtensionName(AddExt1_ManualAdd1.class));
     }
 
+
+    //rluan: 同上, 测试的是 api 的方式.
     @Test
     public void test_AddExtension_NoExtend() throws Exception {
 //        ExtensionLoader.getExtensionLoader(Ext9Empty.class).getSupportedExtensions();
@@ -254,6 +281,8 @@ public class ExtensionLoaderTest {
         assertEquals("ext9", ExtensionLoader.getExtensionLoader(Ext9Empty.class).getExtensionName(Ext9EmptyImpl.class));
     }
 
+
+    //rluan: 规则: extension 无法重名, 否则异常.
     @Test
     public void test_AddExtension_ExceptionWhenExistedExtension() throws Exception {
         SimpleExt ext = ExtensionLoader.getExtensionLoader(SimpleExt.class).getExtension("impl1");
@@ -266,6 +295,8 @@ public class ExtensionLoaderTest {
         }
     }
 
+    // rluan: 通过 api 的方式添加 extension. 这里的 addExtension()把传进去的 class 赋值给cachedAdaptiveClass.
+    // 在 getAdaptive 的时候, 执行 class 的实例化工作(newInstance).
     @Test
     public void test_AddExtension_Adaptive() throws Exception {
         ExtensionLoader<AddExt2> loader = ExtensionLoader.getExtensionLoader(AddExt2.class);
@@ -275,6 +306,8 @@ public class ExtensionLoaderTest {
         assertTrue(adaptive instanceof AddExt2_ManualAdaptive);
     }
 
+
+    // rluan: 规则: 只能有一个 adaptive extension.
     @Test
     public void test_AddExtension_Adaptive_ExceptionWhenExistedAdaptive() throws Exception {
         ExtensionLoader<AddExt1> loader = ExtensionLoader.getExtensionLoader(AddExt1.class);
@@ -289,6 +322,7 @@ public class ExtensionLoaderTest {
         }
     }
 
+    //rluan: replaceExtension()的使用方法.
     @Test
     public void test_replaceExtension() throws Exception {
         try {
@@ -313,6 +347,30 @@ public class ExtensionLoaderTest {
         }
     }
 
+
+    //rluan: 第一次getAdaptiveExtension(), 拿到的是如下(格式化后): 第二次 get 的时候, 是AddExt3_ManualAdaptive的实例.
+/*
+package com.alibaba.dubbo.common.extensionloader.ext8_add;
+
+import com.alibaba.dubbo.common.extension.ExtensionLoader;
+
+public class AddExt3$Adaptive implements com.alibaba.dubbo.common.extensionloader.ext8_add.AddExt3 {
+    public java.lang.String echo(com.alibaba.dubbo.common.URL arg0, java.lang.String arg1) {
+        if (arg0 == null)
+            throw new IllegalArgumentException("url == null");
+        com.alibaba.dubbo.common.URL url = arg0;
+        String extName = url.getParameter("add.ext3", "impl1");
+        if (extName == null)
+            throw new IllegalStateException(
+                    "Fail to get extension(com.alibaba.dubbo.common.extensionloader.ext8_add.AddExt3) name from url("
+                            + url.toString() + ") use keys([add.ext3])");
+        com.alibaba.dubbo.common.extensionloader.ext8_add.AddExt3 extension = (com.alibaba.dubbo.common.extensionloader.ext8_add.AddExt3) ExtensionLoader
+                .getExtensionLoader(com.alibaba.dubbo.common.extensionloader.ext8_add.AddExt3.class)
+                .getExtension(extName);
+        return extension.echo(arg0, arg1);
+    }
+}
+ */
     @Test
     public void test_replaceExtension_Adaptive() throws Exception {
         ExtensionLoader<AddExt3> loader = ExtensionLoader.getExtensionLoader(AddExt3.class);
@@ -350,6 +408,7 @@ public class ExtensionLoaderTest {
         }
     }
 
+    // rluan:
     @Test
     public void test_InitError() throws Exception {
         ExtensionLoader<InitErrorExt> loader = ExtensionLoader.getExtensionLoader(InitErrorExt.class);
@@ -365,6 +424,8 @@ public class ExtensionLoaderTest {
         }
     }
 
+
+    //rluan: url 的内容只有 parameter起作用, 负责过滤条件.
     @Test
     public void testLoadActivateExtension() throws Exception {
         // test default
@@ -400,6 +461,8 @@ public class ExtensionLoaderTest {
         Assert.assertTrue(list.get(1).getClass() == OrderActivateExtImpl2.class);
     }
 
+
+    // rluan:
     @Test
     public void testLoadDefaultActivateExtension() throws Exception {
         // test default
@@ -417,6 +480,9 @@ public class ExtensionLoaderTest {
         Assert.assertTrue(list.get(0).getClass() == ActivateExt1Impl1.class);
         Assert.assertTrue(list.get(1).getClass() == OrderActivateExtImpl1.class);
     }
+
+    // rluan: 扩展点属性注入: 1. 存在 getXXXX()的方法, 2. 存在 XXXX 的已知扩展点实例, 3. getXXXX 方法没有@DisableInject的注解.
+    // 注入的方法: injectExtension().
 
     @Test
     public void testInjectExtension() {
